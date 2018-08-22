@@ -3,6 +3,7 @@ package jp.techacademy.autoslideshowapp;
 import android.Manifest;
 import android.content.ContentResolver;
 import android.content.ContentUris;
+import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.media.Image;
@@ -10,6 +11,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.provider.MediaStore;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -28,6 +30,7 @@ public class MainActivity extends AppCompatActivity {
     Timer mTimer;
     boolean isPlay = false;
 
+
     Handler mHandler = new Handler();
     Button buttonPlay;
     Button buttonNext;
@@ -41,6 +44,7 @@ public class MainActivity extends AppCompatActivity {
         buttonPlay = (Button) findViewById(R.id.buttonPlay);
         buttonNext = (Button) findViewById(R.id.buttonNext);
         buttonBack = (Button) findViewById(R.id.buttonBack);
+
 
 
         // 初期起動で画像情報を取りに行く
@@ -89,7 +93,7 @@ public class MainActivity extends AppCompatActivity {
                         buttonBack.setEnabled(true);
                         buttonPlay.setText("再生");
                         isPlay = false;
-                        Log.d("saki","スライドショー停止");
+                        Log.d("saki", "スライドショー停止");
                     }
                 }
             }
@@ -140,7 +144,6 @@ public class MainActivity extends AppCompatActivity {
             if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
                 // 許可されている
                 Log.d("saki", "6以降許可されている");
-
                 getContentInfo();
             } else {
                 // 許可されていないので許可ダイアログを表示
@@ -158,19 +161,13 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    @Override
-    protected void onStart() {
-        // アプリ再開時
-        super.onStart();
-        getContentInfo();
-        Log.d("saki", "Called: OnStart()");
-    }
 
     @Override
-    protected void onStop() {
-        // アプリ非表示時
-        super.onStop();
-        cursor.close();
+    protected void onDestroy(){
+        super.onDestroy();
+        if(cursor != null) {
+            cursor.close();
+        }
     }
 
     @Override
@@ -179,14 +176,41 @@ public class MainActivity extends AppCompatActivity {
             case PERMISSIONS_REQUEST_CODE:
                 if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     Log.d("saki", "許可ダイアログで許可された");
+
                     getContentInfo();
                 } else {
+
+                    // 許可されなかったのでボタンを押下不可にしてポップアップ
                     Log.d("saki", "許可ダイアログで許可されなかった");
+
+                    buttonBack.setEnabled(false);
+                    buttonNext.setEnabled(false);
+                    buttonPlay.setEnabled(false);
+
+                    showAlertDialog();
+
                 }
                 break;
             default:
                 break;
         }
+    }
+
+    private void showAlertDialog(){
+        AlertDialog.Builder adb = new AlertDialog.Builder(this);
+        adb.setTitle("Alert");
+        adb.setMessage("画像へのアクセス許可がないため、画像を表示できませんでした。アプリを終了してください。");
+
+        adb.setPositiveButton("了解",
+                new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+
+                    }
+                });
+        AlertDialog ad = adb.create();
+        ad.show();
+
     }
 
     // 画像情報を取得して画像を表示する
