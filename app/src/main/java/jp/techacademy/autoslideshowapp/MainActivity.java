@@ -8,6 +8,7 @@ import android.database.Cursor;
 import android.media.Image;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
 import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -16,24 +17,122 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 
+import java.util.Timer;
+import java.util.TimerTask;
+
 public class MainActivity extends AppCompatActivity {
 
 
     private static final int PERMISSIONS_REQUEST_CODE = 100;
     Cursor cursor; // 取得画像情報
+    Timer mTimer;
+    boolean isPlay = false;
+
+    Handler mHandler = new Handler();
+    Button buttonPlay;
+    Button buttonNext;
+    Button buttonBack;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Button buttonPlay = (Button) findViewById(R.id.buttonPlay);
-        Button buttonNext = (Button) findViewById(R.id.buttonNext);
-        Button buttonBack = (Button) findViewById(R.id.buttonBack);
+        buttonPlay = (Button) findViewById(R.id.buttonPlay);
+        buttonNext = (Button) findViewById(R.id.buttonNext);
+        buttonBack = (Button) findViewById(R.id.buttonBack);
 
 
+        // 初期起動で画像情報を取りに行く
+        checkStoragePermission();
 
-        /* 初期起動で画像情報を取りに行く */
+        // 再生/停止ボタン
+        buttonPlay.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                if (!isPlay) {
+                    mTimer = new Timer();
+
+                    // スライドショーを開始する（2秒ごとに画像を更新）
+                    mTimer.schedule(new TimerTask() {
+                        @Override
+                        public void run() {
+                            mHandler.post(new Runnable() {
+                                @Override
+                                public void run() {
+
+                                    buttonNext.setEnabled(false);
+                                    buttonBack.setEnabled(false);
+                                    buttonPlay.setText("停止");
+                                    isPlay = true;
+                                    if (cursor.moveToNext()) {
+                                        // 次の画像がある
+                                        dispImage();
+                                    } else {
+                                        // 次の画像がない
+                                        if (cursor.moveToFirst()) {
+                                            dispImage();
+                                        }
+                                    }
+                                    Log.d("saki", "スライドショーを実行中");
+                                }
+                            });
+                        }
+                    }, 2000, 2000);
+                } else {
+                    // スライドショーを停止する
+                    if (mTimer != null) {
+                        mTimer.cancel();
+                        mTimer = null;
+                        buttonNext.setEnabled(true);
+                        buttonBack.setEnabled(true);
+                        buttonPlay.setText("再生");
+                        isPlay = false;
+                        Log.d("saki","スライドショー停止");
+                    }
+                }
+            }
+        });
+
+        // 進むボタン
+        buttonNext.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (cursor.moveToNext()) {
+                    // 次の画像があれば表示する
+                    dispImage();
+                } else {
+                    // 次の画像がなければ、最初に戻る
+
+                    if (cursor.moveToFirst()) {
+                        dispImage();
+                        Log.d("saki", "次の画像がないので最初に戻る");
+                    }
+                }
+            }
+        });
+
+
+        // 戻るボタン
+        buttonBack.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (cursor.moveToPrevious()) {
+                    // 前の画像があれば表示する
+                    dispImage();
+                } else {
+                    // 前の画像がなければ最後に戻る
+                    if (cursor.moveToLast()) {
+                        dispImage();
+                        Log.d("saki", "前の画像がないので最後に戻る");
+                    }
+                }
+            }
+        });
+    }
+
+    private void checkStoragePermission() {
 
         // Android 6.0以降の許可確認
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -41,6 +140,7 @@ public class MainActivity extends AppCompatActivity {
             if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
                 // 許可されている
                 Log.d("saki", "6以降許可されている");
+
                 getContentInfo();
             } else {
                 // 許可されていないので許可ダイアログを表示
@@ -51,53 +151,26 @@ public class MainActivity extends AppCompatActivity {
             // Android 5系以下の場合　
         } else {
             Log.d("saki", "5系以下");
-            ///////////////////////// 許可がない場合の条件分岐 //////////////////////////////////
+
             getContentInfo();
+
         }
 
+    }
 
-        // 進むボタン
-        buttonNext.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if(cursor.moveToNext()) {
-                    // 次の画像があれば表示する
-                    dispImage();
-                }else{
-                    // 次の画像がなければ、最初に戻る
+    @Override
+    protected void onStart() {
+        // アプリ再開時
+        super.onStart();
+        getContentInfo();
+        Log.d("saki", "Called: OnStart()");
+    }
 
-                    if(cursor.moveToFirst()){
-                        dispImage();
-                        Log.d("saki","次の画像がないので最初に戻る");
-                    }
-                }
-            }
-        });
-
-        /*
-        @Override
-        protected void onStart(){
-            super.onStart();
-            checkStoragePermission();
-            getContentInfo();
-        }*/
-
-        // 戻るボタン
-        buttonBack.setOnClickListener(new View.OnClickListener(){
-            @Override
-            public void onClick(View v){
-                if(cursor.moveToPrevious()){
-                    // 前の画像があれば表示する
-                    dispImage();
-                }else{
-                    // 前の画像がなければ最後に戻る
-                    if(cursor.moveToLast()){
-                        dispImage();
-                        Log.d("saki","前の画像がないので最後に戻る");
-                    }
-                }
-            }
-        });
+    @Override
+    protected void onStop() {
+        // アプリ非表示時
+        super.onStop();
+        cursor.close();
     }
 
     @Override
@@ -119,7 +192,7 @@ public class MainActivity extends AppCompatActivity {
     // 画像情報を取得して画像を表示する
     private void getContentInfo() {
 
-        Log.d("saki","Called:getContentInfo()");
+        Log.d("saki", "Called:getContentInfo()");
         ContentResolver resolver = getContentResolver();
         cursor = resolver.query(
                 MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
@@ -129,20 +202,20 @@ public class MainActivity extends AppCompatActivity {
                 null
         );
 
-        if(cursor.moveToFirst()){
+        if (cursor.moveToFirst()) {
             dispImage();
-        }else{
+        } else {
             // 端末に画像が存在しない場合
         }
     }
 
-    private void dispImage(){
+    private void dispImage() {
         int fieldIndex = cursor.getColumnIndex(MediaStore.Images.Media._ID);
         Long id = cursor.getLong(fieldIndex);
-        Uri imageUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,id);
+        Uri imageUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
 
         ImageView imageView = (ImageView) findViewById(R.id.imageView);
         imageView.setImageURI(imageUri);
-        Log.d("saki","URI"+ imageUri.toString());
+        Log.d("saki", "URI" + imageUri.toString());
     }
 }
