@@ -28,7 +28,6 @@ public class MainActivity extends AppCompatActivity {
     private static final int PERMISSIONS_REQUEST_CODE = 100;
     Cursor cursor; // 取得画像情報
     Timer mTimer;
-    boolean isPlay = false;
 
 
     Handler mHandler = new Handler();
@@ -46,7 +45,6 @@ public class MainActivity extends AppCompatActivity {
         buttonBack = (Button) findViewById(R.id.buttonBack);
 
 
-
         // 初期起動で画像情報を取りに行く
         checkStoragePermission();
 
@@ -55,8 +53,12 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
 
-                if (!isPlay) {
+                // mTimreがnull:停止状態
+                if (mTimer == null) {
                     mTimer = new Timer();
+                    buttonNext.setEnabled(false);
+                    buttonBack.setEnabled(false);
+                    buttonPlay.setText("停止");
 
                     // スライドショーを開始する（2秒ごとに画像を更新）
                     mTimer.schedule(new TimerTask() {
@@ -66,10 +68,7 @@ public class MainActivity extends AppCompatActivity {
                                 @Override
                                 public void run() {
 
-                                    buttonNext.setEnabled(false);
-                                    buttonBack.setEnabled(false);
-                                    buttonPlay.setText("停止");
-                                    isPlay = true;
+
                                     if (cursor.moveToNext()) {
                                         // 次の画像がある
                                         dispImage();
@@ -86,15 +85,15 @@ public class MainActivity extends AppCompatActivity {
                     }, 2000, 2000);
                 } else {
                     // スライドショーを停止する
-                    if (mTimer != null) {
-                        mTimer.cancel();
-                        mTimer = null;
-                        buttonNext.setEnabled(true);
-                        buttonBack.setEnabled(true);
-                        buttonPlay.setText("再生");
-                        isPlay = false;
-                        Log.d("saki", "スライドショー停止");
-                    }
+
+                    mTimer.cancel();
+                    mTimer = null;
+                    buttonNext.setEnabled(true);
+                    buttonBack.setEnabled(true);
+                    buttonPlay.setText("再生");
+                    
+                    Log.d("saki", "スライドショー停止");
+
                 }
             }
         });
@@ -163,9 +162,9 @@ public class MainActivity extends AppCompatActivity {
 
 
     @Override
-    protected void onDestroy(){
+    protected void onDestroy() {
         super.onDestroy();
-        if(cursor != null) {
+        if (cursor != null) {
             cursor.close();
         }
     }
@@ -196,7 +195,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void showAlertDialog(){
+    private void showAlertDialog() {
         AlertDialog.Builder adb = new AlertDialog.Builder(this);
         adb.setTitle("Alert");
         adb.setMessage("画像へのアクセス許可がないため、画像を表示できませんでした。アプリを終了してください。");
